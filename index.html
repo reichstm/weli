@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weli</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .house-icon {
+            cursor: pointer;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body class="bg-light p-4">
+    <div class="container">
+        <h1 class="text-center mb-4">Weli</h1>
+        <div class="mb-4">
+            <select id="existingGames" class="form-control mb-2" onchange="selectGame()">
+                <option value="">Wähle ein bestehendes Spiel</option>
+            </select>
+            <input id="gameName" type="text" placeholder="Spielname eingeben" class="form-control mb-2">
+            <button onclick="addGame()" class="btn btn-primary btn-block">Spiel hinzufügen</button>
+        </div>
+        <div id="gamesList">
+            <!-- Spiele werden hier hinzugefügt -->
+        </div>
+    </div>
+
+    <script>
+        let games = JSON.parse(localStorage.getItem('games')) || [];
+
+        function saveGames() {
+            localStorage.setItem('games', JSON.stringify(games));
+        }
+
+        function addGame() {
+            const gameNameInput = document.getElementById('gameName');
+            const gameName = gameNameInput.value.trim() || new Date().toLocaleString();
+            if (gameName) {
+                games.push({ name: gameName, players: [], factors: [1] });
+                gameNameInput.value = '';
+                saveGames();
+                renderGames();
+                populateExistingGames();
+            }
+        }
+
+        function deleteGame(gameIndex) {
+            games.splice(gameIndex, 1);
+            saveGames();
+            renderGames();
+            populateExistingGames();
+        }
+
+        function selectGame() {
+            const selectedGameIndex = document.getElementById('existingGames').value;
+            if (selectedGameIndex !== "") {
+                renderGames(selectedGameIndex);
+            }
+        }
+
+        function addPlayer(gameIndex) {
+            const playerNameInput = document.getElementById(`playerName-${gameIndex}`);
+            const playerName = playerNameInput.value.trim();
+            if (playerName) {
+                games[gameIndex].players.push({ name: playerName, rounds: [undefined], points: 21, wonRounds: 0, lostRounds: 0 });
+                playerNameInput.value = '';
+                saveGames();
+                renderGames(gameIndex);
+            }
+        }
+
+        function removePlayer(gameIndex, playerIndex) {
+            games[gameIndex].players.splice(playerIndex, 1);
+            saveGames();
+            renderGames(gameIndex);
+        }
+
+        function addRound(gameIndex, playerIndex, roundIndex) {
+            const roundScoreInput = document.getElementById(`roundScore-${gameIndex}-${playerIndex}-${roundIndex}`);
+            const roundScore = parseInt(roundScoreInput.value.trim());
+            if (!isNaN(roundScore)) {
+                games[gameIndex].players[playerIndex].rounds[roundIndex] = roundScore;
+                saveGames();
+            }
+        }
+
+        function processRound(gameIndex, roundIndex) {
+            let allPlayersAboveZero = true;
+            games[gameIndex].players.forEach(player => {
+                player.points = 21; // Reset points to 21
+                player.wonRounds = 0; // Reset won rounds
+                player.lostRounds = 0; // Reset lost rounds
+            });
+
+            for (let i = 0; i <= roundIndex; i++) {
+                const factor = games[gameIndex].factors[i] || 1;
+                games[gameIndex].players.forEach((player, playerIndex) => {
+                    const assumedPoints = player.rounds[i];
+                    if (assumedPoints === undefined) {
+                        player.points += 5; // Gain points if no assumed points
+                        player.lostRounds += 1;
+                    } else if (player.madePoints === undefined || player.madePoints[i] === undefined) {
+                        const madePoints = confirm(`Hat ${player.name} seine angenommenen Punkte von ${assumedPoints} in Runde ${i + 1} erreicht?`);
+                        player.madePoints = player.madePoints || [];
+                        player.madePoints[i] = madePoints;
+                        if (madePoints) {
+                            player.points -= assumedPoints * factor; // Lose points if made points
+                            player.wonRounds += 1;
+                        } else {
+                            player.points += 10; // Gain points if failed to make points
+                            player.rounds[i] = 10; // Set assumed points to 10
+                            player.lostRounds += 1;
+                        }
+                    } else if (player.madePoints[i]) {
+                        player.points -= assumedPoints * factor; // Lose points if made points
+                        player.wonRounds += 1;
+                    } else {
+                        player.points += 10; // Gain points if failed to make points
+                        player.lostRounds += 1;
+                    }
+                    if (player.points <= 0) {
+                        allPlayersAboveZero = false;
+                    }
+                });
+            }
+
+            saveGames();
+            renderGames(gameIndex);
+            if (allPlayersAboveZero) {
+                addNewRound(gameIndex);
+            }
+        }
+
+        function addNewRound(gameIndex) {
+            const lastRound = games[gameIndex].players[0].rounds[games[gameIndex].players[0].rounds.length - 1];
+            if (lastRound !== undefined && lastRound !== null) {
+                games[gameIndex].players.forEach(player => {
+                    if (player.rounds[player.rounds.length - 1] !== undefined) {
+                        player.rounds.push(undefined);
+                    }
+                });
+                games[gameIndex].factors.push(1);
+                saveGames();
+                renderGames(gameIndex);
+            }
+        }
+
+        function toggleMadePoints(gameIndex, playerIndex, roundIndex) {
+            const player = games[gameIndex].players[playerIndex];
+            player.madePoints[roundIndex] = !player.madePoints[roundIndex];
+            saveGames();
+        }
+
+        function addHousePoints(gameIndex, playerIndex, roundIndex) {
+            const roundScoreInput = document.getElementById(`roundScore-${gameIndex}-${playerIndex}-${roundIndex}`);
+            roundScoreInput.value = -2;
+            games[gameIndex].players[playerIndex].rounds[roundIndex] = -2;
+            games[gameIndex].players[playerIndex].madePoints = games[gameIndex].players[playerIndex].madePoints || [];
+            games[gameIndex].players[playerIndex].madePoints[roundIndex] = false;
+            saveGames();
+        }
+
+        function multiplyFactor(gameIndex, roundIndex) {
+            const factorInput = document.getElementById(`factor-${gameIndex}-${roundIndex}`);
+            let factor = parseInt(factorInput.value.trim()) || 1;
+            factor *= 2;
+            factorInput.value = factor;
+            games[gameIndex].factors[roundIndex] = factor;
+            saveGames();
+        }
+
+        function recalculatePoints(gameIndex) {
+            games[gameIndex].players.forEach(player => {
+                player.points = 21; // Reset points to 21
+                player.wonRounds = 0; // Reset won rounds
+                player.lostRounds = 0; // Reset lost rounds
+                player.rounds.forEach((round, roundIndex) => {
+                    const factor = games[gameIndex].factors[roundIndex] || 1;
+                    if (round === undefined) {
+                        player.points += 5 * factor; // Gain points if no assumed points
+                        player.lostRounds += 1;
+                    } else if (player.madePoints && player.madePoints[roundIndex]) {
+                        player.points -= round * factor; // Lose points if made points
+                        player.wonRounds += 1;
+                    } else {
+                        player.points += 10; // Gain points if failed to make points
+                        player.lostRounds += 1;
+                    }
+                });
+            });
+        }
+
+        function getBadgeClass(points) {
+            if (points > 21) {
+                return 'badge-warning';
+            } else if (points < 21) {
+                return 'badge-success';
+            } else {
+                return 'badge-info';
+            }
+        }
+
+        function renderGames(selectedGameIndex = null) {
+            const gamesList = document.getElementById('gamesList');
+            gamesList.innerHTML = '';
+            games.forEach((game, gameIndex) => {
+                if (selectedGameIndex !== null && gameIndex != selectedGameIndex) return;
+                const gameDiv = document.createElement('div');
+                gameDiv.className = 'mb-4 p-4 border rounded bg-white';
+                gameDiv.innerHTML = `
+                    <h2 class="text-center mb-2">${game.name}</h2>
+                    <div class="mb-2 d-flex">
+                        <input id="playerName-${gameIndex}" type="text" placeholder="Spielername eingeben" class="form-control mr-2">
+                        <button onclick="addPlayer(${gameIndex})" class="btn btn-success">Spieler hinzufügen</button>
+                    </div>
+                    <div class="mb-2 p-2 border rounded">
+                        <h5 class="text-center">Statistik</h5>
+                        ${game.players.map(player => `
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span>${player.name}</span>
+                                <span class="badge ${getBadgeClass(player.points)}">Punkte: ${player.points}</span>
+                                <span>Gewonnene Runden: ${player.wonRounds}</span>
+                                <span>Verlorene Runden: ${player.lostRounds}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <h5 class="text-center mt-4">Runden</h5>
+                    <table class="table table-bordered mb-2">
+                        <thead>
+                            <tr>
+                                <th>Runde</th>
+                                ${game.players.map((player, playerIndex) => `
+                                    <th>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="w-50">${player.name}</span>
+                                            <span class="badge w-25 ${getBadgeClass(player.points)}">${player.points}</span>
+                                            <button onclick="removePlayer(${gameIndex}, ${playerIndex})" class="btn btn-sm">❌</button>
+                                        </div>
+                                    </th>
+                                `).join('')}
+                                <th>Faktor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${Array.from({ length: game.players[0]?.rounds.length || 0 }, (_, roundIndex) => `
+                                <tr>
+                                    <td>${roundIndex + 1}</td>
+                                    ${game.players.map((player, playerIndex) => `
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <input id="roundScore-${gameIndex}-${playerIndex}-${roundIndex}" type="number" placeholder="Rundenpunkte eingeben" class="form-control mb-2 mr-2" value="${player.rounds[roundIndex] !== undefined ? player.rounds[roundIndex] : ''}" onchange="addRound(${gameIndex}, ${playerIndex}, ${roundIndex})" min="0">
+                                                ${player.madePoints && player.madePoints[roundIndex] !== undefined ? 
+                                                    `<span onclick="toggleMadePoints(${gameIndex}, ${playerIndex}, ${roundIndex})" style="cursor: pointer;">${player.madePoints[roundIndex] ? '✅' : '❌'}</span>` : ''}
+                                                <span class="house-icon" onclick="addHousePoints(${gameIndex}, ${playerIndex}, ${roundIndex})">🏠</span>
+                                            </div>
+                                        </td>
+                                    `).join('')}
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <input id="factor-${gameIndex}-${roundIndex}" type="number" placeholder="Faktor" class="form-control mb-2 mr-2" value="${game.factors[roundIndex] !== undefined ? game.factors[roundIndex] : 1}" min="1" step="1">
+                                            <button onclick="multiplyFactor(${gameIndex}, ${roundIndex})" class="btn btn-secondary btn-sm">x2</button>
+                                        </div>
+                                        <button onclick="processRound(${gameIndex}, ${roundIndex})" class="btn btn-warning btn-block">Runde ${roundIndex + 1} verarbeiten</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <button onclick="deleteGame(${gameIndex})" class="btn btn-danger btn-block mt-2">Spiel löschen</button>
+                `;
+                gamesList.appendChild(gameDiv);
+            });
+        }
+
+        function populateExistingGames() {
+            const existingGamesSelect = document.getElementById('existingGames');
+            existingGamesSelect.innerHTML = '<option value="">Wähle ein bestehendes Spiel</option>';
+            games.forEach((game, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = game.name;
+                existingGamesSelect.appendChild(option);
+            });
+        }
+
+        // Initial render
+        populateExistingGames();
+        renderGames();
+    </script>
+</body>
+</html>
