@@ -242,7 +242,7 @@
               </div>
             </div>
             <div class="setting">
-              <span class="label">Max. Ansage: Punkte rauf</span>
+              <span class="label">1 Stich angesagt: Punkte rauf</span>
               <div class="toggle" id="max-bid-up-toggle">
                 <button id="max-bid-up-yes" class="touch active">Ja</button>
                 <button id="max-bid-up-no" class="touch">Nein</button>
@@ -263,7 +263,7 @@
           <p>Pro Runde werden 5 Karten gespielt. Der Spieler nach dem Geber startet mit der Ansage, danach muss jede weitere Ansage hoeher sein.</p>
           <p><em>Zu Hause</em> bedeutet: nicht mitspielen und die eingestellten Punkte hinaufschreiben.</p>
           <p>Pro Runde wird ein Ansager ausgewaehlt und die maximale Ansage (0-5) gesetzt.</p>
-          <p>Ansager: erreicht er mindestens seine Ansage, werden seine gemachten Stiche abgezogen; sonst +10. Bei maximaler Ansage (5) und aktiviertem Setting werden die Stiche addiert statt abgezogen.</p>
+          <p>Ansager: erreicht er mindestens seine Ansage, werden seine gemachten Stiche abgezogen; sonst +10. Bei Ansage von 1 Stich und aktiviertem Setting werden die Stiche addiert statt abgezogen.</p>
           <p>Andere Mitspieler: gemachte Stiche werden abgezogen; bei 0 Stichen gibt es +5.</p>
           <p>Rundenwerte werden laufend neu berechnet. Pro Runde kann der Faktor verdoppelt werden (x1, x2, x4, ...).</p>
           <p>Neue Runde wird automatisch angelegt, sobald fuer alle Spieler Stiche gesetzt sind und alle Spieler &gt; 0 Punkte haben.</p>
@@ -559,8 +559,8 @@
 
         if (player.id === callerId) {
           if (tricksValue >= callerBid) {
-            const isMaxBid = callerBid === CARDS_PER_ROUND;
-            if (isMaxBid && state.settings.maxBidUp) {
+            const isOneTrick = callerBid === 1;
+            if (isOneTrick && state.settings.maxBidUp) {
               scores[player.id] = tricksValue * factor;
             } else {
               scores[player.id] = -tricksValue * factor;
