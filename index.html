@@ -1421,6 +1421,10 @@
       elements.dealerPlaysNo.classList.toggle("active", !state.settings.dealerPlays);
       elements.maxBidUpYes.classList.toggle("active", state.settings.maxBidUp);
       elements.maxBidUpNo.classList.toggle("active", !state.settings.maxBidUp);
+      elements.dealerPlaysYes.disabled = state.players.length >= 5;
+      elements.dealerPlaysYes.title = state.players.length >= 5 ? "Bei 5 Spielern setzt der Geber immer aus." : "";
+      elements.dealerPlaysNo.disabled = state.players.length >= 5;
+      elements.dealerPlaysNo.title = state.players.length >= 5 ? "Bei 5 Spielern setzt der Geber immer aus." : "";
       elements.startPointsDec.disabled = state.settings.startPoints <= 1;
       elements.startPointsInc.disabled = state.settings.startPoints >= 200;
       elements.stayHomeDec.disabled = state.settings.stayHomeCost <= 0;
@@ -1453,6 +1457,10 @@
 
     function render() {
       setStatus("");
+      if (state.players.length >= 5 && state.settings.dealerPlays) {
+        state.settings.dealerPlays = false;
+        saveState();
+      }
       ensureAtLeastOneRound();
       ensureNextRoundAvailable();
       renderHeader();
@@ -1474,8 +1482,8 @@
     }
 
     elements.addPlayer.addEventListener("click", () => {
-      if (state.players.length >= 4) {
-        setStatus("Maximal 4 Spieler sind erlaubt.", true);
+      if (state.players.length >= 5) {
+        setStatus("Maximal 5 Spieler sind erlaubt.", true);
         return;
       }
       const defaultName = `Spieler ${state.players.length + 1}`;
@@ -1489,9 +1497,9 @@
           if (names.length === 0) {
             names.push(defaultName);
           }
-          const slotsLeft = 4 - state.players.length;
+          const slotsLeft = 5 - state.players.length;
           if (names.length > slotsLeft) {
-            setStatus(`Nur noch ${slotsLeft} Platz/Plaetze frei (max. 4 Spieler).`, true);
+            setStatus(`Nur noch ${slotsLeft} Platz/Plaetze frei (max. 5 Spieler).`, true);
             return false;
           }
           names.forEach(name => {
