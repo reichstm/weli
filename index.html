@@ -241,6 +241,13 @@
                 <button id="dealer-plays-no" class="touch">Nein</button>
               </div>
             </div>
+            <div class="setting">
+              <span class="label">1 Stich angesagt: Punkte rauf</span>
+              <div class="toggle" id="max-bid-up-toggle">
+                <button id="max-bid-up-yes" class="touch active">Ja</button>
+                <button id="max-bid-up-no" class="touch">Nein</button>
+              </div>
+            </div>
             <button id="new-party" class="ghost">Neue Partie</button>
             <button id="reset-game" class="ghost danger">Spiel zuruecksetzen</button>
           </div>
@@ -256,7 +263,7 @@
           <p>Pro Runde werden 5 Karten gespielt. Der Spieler nach dem Geber startet mit der Ansage, danach muss jede weitere Ansage hoeher sein.</p>
           <p><em>Zu Hause</em> bedeutet: nicht mitspielen und die eingestellten Punkte hinaufschreiben.</p>
           <p>Pro Runde wird ein Ansager ausgewaehlt und die maximale Ansage (0-5) gesetzt.</p>
-          <p>Ansager: erreicht er mindestens seine Ansage, werden seine gemachten Stiche abgezogen; sonst +10.</p>
+          <p>Ansager: erreicht er mindestens seine Ansage, werden seine gemachten Stiche abgezogen; sonst +10. Bei Ansage von 1 Stich und aktiviertem Setting werden die Stiche addiert statt abgezogen.</p>
           <p>Andere Mitspieler: gemachte Stiche werden abgezogen; bei 0 Stichen gibt es +5.</p>
           <p>Rundenwerte werden laufend neu berechnet. Pro Runde kann der Faktor verdoppelt werden (x1, x2, x4, ...).</p>
           <p>Neue Runde wird automatisch angelegt, sobald fuer alle Spieler Stiche gesetzt sind und alle Spieler &gt; 0 Punkte haben.</p>
@@ -316,6 +323,7 @@
       showLegend: false,
       leaderboardView: "list",
       dealerPlays: true,
+      maxBidUp: true,
       ...state.settings
     };
 
@@ -342,6 +350,8 @@
       stayHomeValue: document.getElementById("stay-home-value"),
       dealerPlaysYes: document.getElementById("dealer-plays-yes"),
       dealerPlaysNo: document.getElementById("dealer-plays-no"),
+      maxBidUpYes: document.getElementById("max-bid-up-yes"),
+      maxBidUpNo: document.getElementById("max-bid-up-no"),
       newParty: document.getElementById("new-party"),
       resetGame: document.getElementById("reset-game"),
       nameDialogBackdrop: document.getElementById("name-dialog-backdrop"),
@@ -549,7 +559,12 @@
 
         if (player.id === callerId) {
           if (tricksValue >= callerBid) {
-            scores[player.id] = -tricksValue * factor;
+            const isOneTrick = callerBid === 1;
+            if (isOneTrick && state.settings.maxBidUp) {
+              scores[player.id] = tricksValue * factor;
+            } else {
+              scores[player.id] = -tricksValue * factor;
+            }
           } else {
             scores[player.id] = PENALTY_CALLER_FAIL * factor;
           }
@@ -1404,6 +1419,8 @@
       elements.stayHomeValue.textContent = String(state.settings.stayHomeCost);
       elements.dealerPlaysYes.classList.toggle("active", state.settings.dealerPlays);
       elements.dealerPlaysNo.classList.toggle("active", !state.settings.dealerPlays);
+      elements.maxBidUpYes.classList.toggle("active", state.settings.maxBidUp);
+      elements.maxBidUpNo.classList.toggle("active", !state.settings.maxBidUp);
       elements.dealerPlaysYes.disabled = state.players.length >= 5;
       elements.dealerPlaysYes.title = state.players.length >= 5 ? "Bei 5 Spielern setzt der Geber immer aus." : "";
       elements.dealerPlaysNo.disabled = state.players.length >= 5;
@@ -1555,6 +1572,18 @@
       render();
     });
 
+    elements.maxBidUpYes.addEventListener("click", () => {
+      state.settings.maxBidUp = true;
+      saveState();
+      render();
+    });
+
+    elements.maxBidUpNo.addEventListener("click", () => {
+      state.settings.maxBidUp = false;
+      saveState();
+      render();
+    });
+
     elements.toggleSetup.addEventListener("click", () => {
       state.settings.showSetup = !state.settings.showSetup;
       saveState();
@@ -1587,7 +1616,7 @@
       }
       state.players = [];
       state.rounds = [];
-      state.settings = { startPoints: 21, stayHomeCost: 1, showSetup: true, autoCollapsed: false, showLegend: false, leaderboardView: "list", dealerPlays: true };
+      state.settings = { startPoints: 21, stayHomeCost: 1, showSetup: true, autoCollapsed: false, showLegend: false, leaderboardView: "list", dealerPlays: true, maxBidUp: true };
       saveState();
       render();
     });
