@@ -1220,9 +1220,14 @@
           const roundTotals = totalsAfterRound[index];
           const totalAfterBadge = document.createElement("span");
           totalAfterBadge.className = "badge round-total-badge";
-          totalAfterBadge.textContent = roundTotals
-            ? `Nach Runde: ${roundTotals[player.id] ?? "-"}`
-            : "Nach Runde: -";
+          if (roundTotals) {
+            totalAfterBadge.appendChild(document.createTextNode("Nach Runde: "));
+            const boldScore = document.createElement("strong");
+            boldScore.textContent = roundTotals[player.id] ?? "-";
+            totalAfterBadge.appendChild(boldScore);
+          } else {
+            totalAfterBadge.textContent = "Nach Runde: -";
+          }
 
           row.appendChild(left);
           row.appendChild(controls);
