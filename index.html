@@ -303,6 +303,7 @@
   </div>
 
   <script>
+    const APP_VERSION = 'v1';
     const storageKey = "weli.score.v3";
     const CARDS_PER_ROUND = 5;
     const PENALTY_CALLER_FAIL = 10;
@@ -1622,6 +1623,10 @@
     });
 
     render();
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`);
+    }
   </script>
 </body>
 </html>
