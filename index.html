@@ -249,6 +249,13 @@
                 <button id="max-bid-up-no" class="touch">Nein</button>
               </div>
             </div>
+            <div class="setting">
+              <span class="label">1 Stich angesagt: Faktor verdoppeln</span>
+              <div class="toggle" id="one-trick-double-toggle">
+                <button id="one-trick-double-yes" class="touch active">Ja</button>
+                <button id="one-trick-double-no" class="touch">Nein</button>
+              </div>
+            </div>
             <button id="new-party" class="ghost">Neue Partie</button>
             <button id="reset-game" class="ghost danger">Spiel zuruecksetzen</button>
           </div>
@@ -266,7 +273,7 @@
           <p>Pro Runde wird ein Ansager ausgewaehlt und die maximale Ansage (0-5) gesetzt.</p>
           <p>Ansager: erreicht er mindestens seine Ansage, werden seine gemachten Stiche abgezogen; sonst +10. Bei Ansage von 0 Stichen und aktiviertem Setting werden die Stiche addiert statt abgezogen.</p>
           <p>Andere Mitspieler: gemachte Stiche werden abgezogen; bei 0 Stichen gibt es +5.</p>
-          <p>Rundenwerte werden laufend neu berechnet. Pro Runde kann der Faktor verdoppelt werden (x1, x2, x4, ...).</p>
+          <p>Rundenwerte werden laufend neu berechnet. Pro Runde kann der Faktor verdoppelt werden (x1, x2, x4, ...). Bei Ansage von 1 Stich und aktiviertem Setting wird der Faktor automatisch verdoppelt.</p>
           <p>Neue Runde wird automatisch angelegt, sobald fuer alle Spieler Stiche gesetzt sind und alle Spieler &gt; 0 Punkte haben.</p>
         </div>
       </div>
@@ -326,6 +333,7 @@
       leaderboardView: "list",
       dealerPlays: true,
       maxBidUp: true,
+      oneTrickDoubles: true,
       ...state.settings
     };
 
@@ -354,6 +362,8 @@
       dealerPlaysNo: document.getElementById("dealer-plays-no"),
       maxBidUpYes: document.getElementById("max-bid-up-yes"),
       maxBidUpNo: document.getElementById("max-bid-up-no"),
+      oneTrickDoubleYes: document.getElementById("one-trick-double-yes"),
+      oneTrickDoubleNo: document.getElementById("one-trick-double-no"),
       newParty: document.getElementById("new-party"),
       resetGame: document.getElementById("reset-game"),
       nameDialogBackdrop: document.getElementById("name-dialog-backdrop"),
@@ -1408,7 +1418,11 @@
       if (!round) {
         return;
       }
+      const previousBid = round.maxBid;
       round.maxBid = clamp(Number(value), 0, CARDS_PER_ROUND);
+      if (state.settings.oneTrickDoubles && round.maxBid === 1 && previousBid !== 1) {
+        round.factor = Math.min(normalizeFactor(round.factor) * 2, MAX_ROUND_FACTOR);
+      }
       round.active = true;
       saveState();
       render();
@@ -1423,6 +1437,8 @@
       elements.dealerPlaysNo.classList.toggle("active", !state.settings.dealerPlays);
       elements.maxBidUpYes.classList.toggle("active", state.settings.maxBidUp);
       elements.maxBidUpNo.classList.toggle("active", !state.settings.maxBidUp);
+      elements.oneTrickDoubleYes.classList.toggle("active", state.settings.oneTrickDoubles);
+      elements.oneTrickDoubleNo.classList.toggle("active", !state.settings.oneTrickDoubles);
       elements.dealerPlaysYes.disabled = state.players.length >= 5;
       elements.dealerPlaysYes.title = state.players.length >= 5 ? "Bei 5 Spielern setzt der Geber immer aus." : "";
       elements.dealerPlaysNo.disabled = state.players.length >= 5;
@@ -1586,6 +1602,18 @@
       render();
     });
 
+    elements.oneTrickDoubleYes.addEventListener("click", () => {
+      state.settings.oneTrickDoubles = true;
+      saveState();
+      render();
+    });
+
+    elements.oneTrickDoubleNo.addEventListener("click", () => {
+      state.settings.oneTrickDoubles = false;
+      saveState();
+      render();
+    });
+
     elements.toggleSetup.addEventListener("click", () => {
       state.settings.showSetup = !state.settings.showSetup;
       saveState();
@@ -1618,7 +1646,7 @@
       }
       state.players = [];
       state.rounds = [];
-      state.settings = { startPoints: 21, stayHomeCost: 1, showSetup: true, autoCollapsed: false, showLegend: false, leaderboardView: "list", dealerPlays: true, maxBidUp: true };
+      state.settings = { startPoints: 21, stayHomeCost: 1, showSetup: true, autoCollapsed: false, showLegend: false, leaderboardView: "list", dealerPlays: true, maxBidUp: true, oneTrickDoubles: true };
       saveState();
       render();
     });
