@@ -271,8 +271,8 @@
           <p>Pro Runde werden 5 Karten gespielt. Der Spieler nach dem Geber startet mit der Ansage, danach muss jede weitere Ansage hoeher sein.</p>
           <p><em>Zu Hause</em> bedeutet: nicht mitspielen und die eingestellten Punkte hinaufschreiben.</p>
           <p>Pro Runde wird ein Ansager ausgewaehlt und die maximale Ansage (0-5) gesetzt.</p>
-          <p>Ansager: erreicht er mindestens seine Ansage, werden seine gemachten Stiche abgezogen; sonst +10. Bei Ansage von 0 Stichen und aktiviertem Setting werden die Stiche addiert statt abgezogen.</p>
-          <p>Andere Mitspieler: gemachte Stiche werden abgezogen; bei 0 Stichen gibt es +5.</p>
+          <p>Ansager: erreicht er mindestens seine Ansage, werden seine gemachten Stiche abgezogen; sonst +10. Bei Ansage von 0 Stichen und aktiviertem Setting schreiben alle Spieler hinauf: Stiche werden addiert statt abgezogen, bei 0 Stichen gibt es +10.</p>
+          <p>Andere Mitspieler: gemachte Stiche werden abgezogen; bei 0 Stichen gibt es +5. Bei Ansage von 0 Stichen und aktiviertem Setting werden Stiche addiert statt abgezogen.</p>
           <p>Rundenwerte werden laufend neu berechnet. Pro Runde kann der Faktor verdoppelt werden (x1, x2, x4, ...). Bei Ansage von 1 Stich und aktiviertem Setting wird der Faktor automatisch verdoppelt.</p>
           <p>Neue Runde wird automatisch angelegt, sobald fuer alle Spieler Stiche gesetzt sind und alle Spieler &gt; 0 Punkte haben.</p>
         </div>
@@ -569,11 +569,13 @@
           return;
         }
 
+        const isZeroBidMaxUp = callerBid === 0 && state.settings.maxBidUp;
+
         if (player.id === callerId) {
           if (tricksValue >= callerBid) {
             const isZeroTricks = callerBid === 0;
             if (isZeroTricks && state.settings.maxBidUp) {
-              scores[player.id] = tricksValue * factor;
+              scores[player.id] = tricksValue > 0 ? tricksValue * factor : PENALTY_CALLER_FAIL * factor;
             } else {
               scores[player.id] = -tricksValue * factor;
             }
@@ -583,7 +585,9 @@
           return;
         }
 
-        scores[player.id] = tricksValue > 0 ? -tricksValue * factor : PENALTY_NO_TRICK * factor;
+        scores[player.id] = tricksValue > 0
+          ? (isZeroBidMaxUp ? tricksValue : -tricksValue) * factor
+          : PENALTY_NO_TRICK * factor;
       });
 
       return { scores, callerId, callerBid };
