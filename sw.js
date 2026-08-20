@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `weli-cache-${CACHE_VERSION}`;
 const ASSETS = ['./', './index.html'];
 

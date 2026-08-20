@@ -271,9 +271,9 @@
           <p>Pro Runde werden 5 Karten gespielt. Der Spieler nach dem Geber startet mit der Ansage, danach muss jede weitere Ansage hoeher sein.</p>
           <p><em>Zu Hause</em> bedeutet: nicht mitspielen und die eingestellten Punkte hinaufschreiben.</p>
           <p>Pro Runde wird ein Ansager ausgewaehlt und die maximale Ansage (0-5) gesetzt.</p>
-          <p>Ansager: erreicht er mindestens seine Ansage, werden seine gemachten Stiche abgezogen; sonst +10. Bei Ansage von 0 Stichen und aktiviertem Setting schreiben alle Spieler hinauf: Stiche werden addiert statt abgezogen, bei 0 Stichen gibt es +10.</p>
+          <p>Ansager: erreicht er mindestens seine Ansage, werden seine gemachten Stiche abgezogen; ohne Stich gibt es +5. Verfehlt er die Ansage: +10. Bei Ansage von 0 Stichen und aktiviertem Setting schreiben alle Spieler hinauf: Stiche werden addiert statt abgezogen, bei 0 Stichen gibt es +10.</p>
           <p>Andere Mitspieler: gemachte Stiche werden abgezogen; bei 0 Stichen gibt es +5. Bei Ansage von 0 Stichen und aktiviertem Setting werden Stiche addiert statt abgezogen.</p>
-          <p>Rundenwerte werden laufend neu berechnet. Pro Runde kann der Faktor verdoppelt werden (x1, x2, x4, ...). Bei Ansage von 1 Stich und aktiviertem Setting wird der Faktor automatisch verdoppelt.</p>
+          <p>Rundenwerte werden laufend neu berechnet. Pro Runde kann der Faktor verdoppelt werden (x1, x2, x4, ...). Bei Ansage von 1 Stich und aktiviertem Setting wird der Faktor automatisch verdoppelt; wird die Ansage wieder geaendert, wird die Verdopplung zurueckgenommen.</p>
           <p>Neue Runde wird automatisch angelegt, sobald fuer alle Spieler Stiche gesetzt sind und alle Spieler &gt; 0 Punkte haben.</p>
         </div>
       </div>
@@ -311,7 +311,7 @@
   </div>
 
   <script>
-    const APP_VERSION = 'v1';
+    const APP_VERSION = 'v2';
     const storageKey = "weli.score.v3";
     const CARDS_PER_ROUND = 5;
     const PENALTY_CALLER_FAIL = 10;
@@ -462,16 +462,37 @@
       return Math.min(pow, MAX_ROUND_FACTOR);
     }
 
+    function createRound(dealerId = null) {
+      return { id: createId(), factor: 1, autoDoubled: false, maxBid: 0, callerId: null, active: false, inputs: {}, dealerId };
+    }
+
+    function getNextDealerId(previousRound) {
+      if (state.players.length === 0) {
+        return null;
+      }
+      const prevIndex = previousRound?.dealerId
+        ? state.players.findIndex(player => player.id === previousRound.dealerId)
+        : -1;
+      if (prevIndex < 0) {
+        return state.players[0].id;
+      }
+      return state.players[(prevIndex + 1) % state.players.length].id;
+    }
+
     function ensureAtLeastOneRound() {
       if (state.rounds.length === 0) {
-        state.rounds.push({ id: createId(), factor: 1, maxBid: 0, callerId: null, active: false, inputs: {} });
+        state.rounds.push(createRound(getNextDealerId(null)));
       }
 
-      state.rounds.forEach(round => {
+      state.rounds.forEach((round, index) => {
         round.factor = normalizeFactor(round.factor);
+        round.autoDoubled = Boolean(round.autoDoubled);
         round.maxBid = clamp(Number(round.maxBid ?? 0), 0, CARDS_PER_ROUND);
         if (!state.players.some(player => player.id === round.callerId)) {
           round.callerId = null;
+        }
+        if (state.players.length > 0 && !state.players.some(player => player.id === round.dealerId)) {
+          round.dealerId = state.players[index % state.players.length].id;
         }
         if (round.active === undefined) {
           round.active = Boolean(round.closed || roundHasAnyInput(round));
@@ -513,7 +534,9 @@
       if (state.players.length === 0) {
         return 0;
       }
-      return roundIndex % state.players.length;
+      const dealerId = state.rounds[roundIndex]?.dealerId;
+      const index = dealerId ? state.players.findIndex(player => player.id === dealerId) : -1;
+      return index >= 0 ? index : roundIndex % state.players.length;
     }
 
     function getDealerName(roundIndex) {
@@ -577,7 +600,7 @@
             if (isZeroTricks && state.settings.maxBidUp) {
               scores[player.id] = tricksValue > 0 ? tricksValue * factor : PENALTY_CALLER_FAIL * factor;
             } else {
-              scores[player.id] = -tricksValue * factor;
+              scores[player.id] = tricksValue > 0 ? -tricksValue * factor : PENALTY_NO_TRICK * factor;
             }
           } else {
             scores[player.id] = PENALTY_CALLER_FAIL * factor;
@@ -692,12 +715,12 @@
 
       const lastRound = state.rounds[state.rounds.length - 1];
       if (!lastRound) {
-        state.rounds.push({ id: createId(), factor: 1, maxBid: 0, callerId: null, active: false, inputs: {} });
+        state.rounds.push(createRound(getNextDealerId(null)));
         return;
       }
 
       if (roundHasAnyInput(lastRound) && areAllTricksSet(lastRound)) {
-        state.rounds.push({ id: createId(), factor: 1, maxBid: 0, callerId: null, active: false, inputs: {} });
+        state.rounds.push(createRound(getNextDealerId(lastRound)));
       }
     }
 
@@ -1422,10 +1445,17 @@
       if (!round) {
         return;
       }
-      const previousBid = round.maxBid;
       round.maxBid = clamp(Number(value), 0, CARDS_PER_ROUND);
-      if (state.settings.oneTrickDoubles && round.maxBid === 1 && previousBid !== 1) {
-        round.factor = Math.min(normalizeFactor(round.factor) * 2, MAX_ROUND_FACTOR);
+      if (round.autoDoubled && round.maxBid !== 1) {
+        round.factor = Math.max(1, Math.floor(normalizeFactor(round.factor) / 2));
+        round.autoDoubled = false;
+      } else if (state.settings.oneTrickDoubles && round.maxBid === 1 && !round.autoDoubled) {
+        const current = normalizeFactor(round.factor);
+        const doubled = Math.min(current * 2, MAX_ROUND_FACTOR);
+        if (doubled !== current) {
+          round.factor = doubled;
+          round.autoDoubled = true;
+        }
       }
       round.active = true;
       saveState();
